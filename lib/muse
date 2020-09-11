@@ -1,0 +1,59 @@
+#! /usr/bin/env node
+
+const download = require('download-git-repo');
+const chalk = require('chalk');
+const ora = require('ora');
+const inquirer = require('inquirer');
+const fse = require('fs-extra');
+const memFs = require('mem-fs');
+const editor = require('mem-fs-editor');
+const { exec } = require('child_process');
+
+module.exports = async () => {
+  const answers = await inquirer.prompt([{
+    type: 'input',
+    name: 'projectName',
+    message: '请输入项目名称',
+    validate(input) {
+      if (!input) {
+        return '项目名称不能为空';
+      }
+      if (fse.existsSync(input)) {
+        return '已存在该目录，请更换项目名';
+      }
+      return true;
+    },
+  }]);
+
+  const tmpDownloadDir = '__download__';
+  let loading = ora(chalk.yellow('正在下载模板...'));
+  loading.start();
+  download('HedgehogOrg/template-h5-muse#master', tmpDownloadDir, (err, res, body) => {
+    loading.stop();
+    console.log(chalk.green('下载完毕！'));
+    if (err) {
+      console.log(err);
+    } else {
+      loading = ora(chalk.yellow('正在处理...'));
+      loading.start();
+      const memFsEditor = editor.create(memFs.create());
+      memFsEditor.copyTpl(tmpDownloadDir, answers.projectName, {
+        projectName: answers.projectName,
+      });
+      memFsEditor.commit((err) => {
+        fse.remove(tmpDownloadDir);
+        loading.stop();
+        if (!err) {
+          console.log(chalk.green('项目生成完毕！'));
+          // 执行安装
+          loading = ora(chalk.yellow('正在安装依赖...'));
+          loading.start();
+          exec(`cd ${answers.projectName} && yarn`, () => {
+            loading.stop();
+            console.log(chalk.green('安装完毕！'));
+          });
+        }
+      });
+    }
+  });
+}

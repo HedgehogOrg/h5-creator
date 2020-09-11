@@ -1,0 +1,16 @@
+#! /usr/bin/env node
+
+const program = require('commander');
+
+program
+  .version(require('../package.json').version)
+  .usage('<command> [options]');
+
+program
+  .command('muse')
+  .description('生成基于Muse-UI的web移动端项目')
+  .action(() => {
+    require('../lib/muse')();
+  });
+
+program.parse(process.argv);
